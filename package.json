@@ -1,6 +1,6 @@
 {
   "name": "look-at-that-pojo",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Observe POJOs while using POJOs like POJOs",
   "main": "index.js",
   "scripts": {
@@ -14,5 +14,30 @@
     "chai-as-promised": "^4.1.1",
     "coffee-script": "^1.8.0",
     "mocha": "^2.1.0"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "chai": "^1.10.0",
+    "chai-as-promised": "^4.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LukeGT/look-at-that-pojo.git"
+  },
+  "keywords": [
+    "pojo",
+    "observable",
+    "object",
+    "event",
+    "on",
+    "change",
+    "bubble",
+    "propagate"
+  ],
+  "bugs": {
+    "url": "https://github.com/LukeGT/look-at-that-pojo/issues"
+  },
+  "homepage": "https://github.com/LukeGT/look-at-that-pojo"
 }
