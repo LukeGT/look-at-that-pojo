@@ -1,4 +1,7 @@
-    
+
+remove_from_list = (list, item) ->
+    list.splice list.indexOf(item), 1
+
 watch = (object, parent) ->
 
     unless object instanceof Object
@@ -14,12 +17,18 @@ watch = (object, parent) ->
     key_change_callbacks = {}
 
     fire_key_change_callbacks = (key, data) ->
+
         for callback in key_change_callbacks[key]
             callback.call observable, data, observable
 
+        return undefined
+
     fire_object_change_callbacks = ->
+
         for callback in object_change_callbacks
             callback.call observable, observable
+
+        return undefined
 
     setup = (key) ->
 
@@ -29,8 +38,7 @@ watch = (object, parent) ->
 
         Object.defineProperty observable, key, {
 
-            get: ->
-                underlying_data[key]
+            get: -> underlying_data[key]
 
             set: (data) ->
 
@@ -46,20 +54,23 @@ watch = (object, parent) ->
     for key, value of object
         underlying_data[key] = watch value, observable
         setup key
-
     
     Object.defineProperty observable, 'set', {
 
         ### set(key, value)
             allows the user to set a property that did not exist in the original POJO
         ###
-        value: (key, value) ->
+        value: (key, value, silent = false) ->
 
-            unless arguments.length == 2
-                throw new Error("set takes exactly 2 arguments")
+            unless arguments.length >= 2 and arguments.length <= 3
+                throw new Error("set takes 2 or 3 arguments")
 
             setup key
-            observable[key] = value
+
+            if silent
+                underlying_data[key] = value
+            else
+                observable[key] = value
     }
 
     Object.defineProperty observable, 'on', {
@@ -82,6 +93,8 @@ watch = (object, parent) ->
 
                     object_change_callbacks.push callback
 
+                    return -> remove_from_list object_change_callbacks, callback
+
                 else if arguments.length == 2
 
                     [ key, callback ] = arguments
@@ -89,8 +102,12 @@ watch = (object, parent) ->
                     setup key
                     key_change_callbacks[key].push callback
 
+                    return -> remove_from_list key_change_callbacks[key], callback
+
                 else
                     throw new Error("on.change must take 1 or 2 arguments")
+
+
         }
     }
 
@@ -123,56 +140,8 @@ watch = (object, parent) ->
     }
 
     return observable
-    
+
 ### watch(object)
     Takes in a POJO and makes it observable
 ###
-module.exports.watch = (pojo) ->
-    watch pojo
-
-obj = watch {
-    one: 1
-    two: 2
-    three: {
-        four: 4
-        five: 5
-    }
-    six: [1, 2, 3, 4, 5, 6]
-}
-
-console.log 'Listing properties'
-console.log obj
-for a of obj
-    console.log a
-
-console.log JSON.stringify(obj)
-
-obj.on.change ->
-    console.log 'EVERYTHING HAS CHANGED'
-obj.on.change 'one', (data) ->
-    console.log 'one changd to: ' + data
-obj.on.change 'one', (data) ->
-    console.log 'did you hear me? it changed to: ' + data
-
-obj.one = 'one'
-console.log JSON.stringify(obj)
-
-obj.three.on.change (data) ->
-    console.log 'something in three changed'
-obj.three.on.change 'four', (data) ->
-    console.log 'and four changed to: ' + data
-
-obj.three.four = 'four'
-console.log JSON.stringify(obj)
-
-obj.three.on.change 'seven', (data) ->
-    console.log 'a new number seven changed to ' + data
-
-obj.three.seven = 'seven'
-console.log JSON.stringify(obj)
-
-obj.three.set('eight', 'eight')
-console.log JSON.stringify(obj)
-
-obj.six.push 7
-console.log JSON.stringify(obj)
+module.exports = (pojo) -> watch pojo
