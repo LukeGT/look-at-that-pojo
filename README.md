@@ -127,7 +127,7 @@ observable.array[0].key = true // Nested objects are observable
 
 ``` javascript
 observable.on.change(function(){ console.log('I wont fire') })
-observable.set('property', 'value', true) // 3rd argument is a 'silent' flag
+observable.set.silently('property', 'value')
 ```
 
 ## Removing handlers

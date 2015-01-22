@@ -1,6 +1,6 @@
 {
   "name": "look-at-that-pojo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Observe POJOs while using POJOs like POJOs",
   "main": "index.js",
   "scripts": {
