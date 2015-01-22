@@ -8,13 +8,11 @@ describe 'Looking at that POJO', ->
     object = {
         one: 1
         two: 2
-        three: {
+        three:
             four: 4
             five: 5
-            six: {
+            six:
                 seven: 7
-            }
-        }
     }
 
     beforeEach ->
@@ -210,6 +208,9 @@ describe 'Looking at that POJO', ->
             pojo.on.change -> done()
             pojo.set 'eight', 'eight'
 
+        it 'should return the set value, just like real assignment', ->
+            (pojo.set 'eight', 'eight').should.equal('eight')
+
     describe 'assigning an object over an object', ->
 
         it 'should result in an observable object', ->
@@ -221,10 +222,9 @@ describe 'Looking at that POJO', ->
             pojo.three = {
                 eight: 8
                 nine: 9
-                ten: {
+                ten:
                     eleven: 11
                     twelve: 12
-                }
             }
 
             pojo.three.eight = 'eight'
@@ -233,15 +233,25 @@ describe 'Looking at that POJO', ->
 
         it 'should allow nested objects to have event handlers', (done) ->
 
-            root_count = 0
-
             pojo.three = {
                 eight: 8
                 nine: 9
-                ten: {
+                ten:
                     eleven: 11
                     twelve: 12
-                }
+            }
+
+            pojo.three.ten.on.change -> done()
+            pojo.three.ten.eleven = 'eleven'
+
+        it 'should work even if you use set()', (done) ->
+
+            pojo.set 'three', {
+                eight: 8
+                nine: 9
+                ten:
+                    eleven: 11
+                    twelve: 12
             }
 
             pojo.three.ten.on.change -> done()
@@ -252,14 +262,63 @@ describe 'Looking at that POJO', ->
         it 'should not trigger an object change', ->
 
             pojo.on.change -> throw new Error('This should not have run')
-            pojo.set 'one', 'one', true
+            pojo.set.silently 'one', 'one'
 
         it 'should not trigger a key change', ->
 
             pojo.on.change 'one', -> throw new Error('This should not have run')
-            pojo.set 'one', 'one', true
+            pojo.set.silently 'one', 'one'
+
+    describe 'Arrays', ->
+
+        describe 'basic operations', ->
+
+            changed = null
+            array = null
+
+            beforeEach ->
+                changed = false
+                array = [ 1, 2, key: 'value', 3 ]
+                pojo = look_at_that array: array
+                pojo.array.on.change -> changed = true
+
+            afterEach ->
+                changed.should.be.true
+
+            it 'can be popped', -> pojo.array.pop().should.equal array.pop()
+            it 'can be pushed', -> pojo.array.push().should.equal array.push()
+            it 'can be reversed', -> pojo.array.reverse().should.deep.equal array.reverse()
+            it 'can be shifted', -> pojo.array.shift().should.equal array.shift()
+            it 'can be unshifted', -> pojo.array.unshift().should.equal array.unshift()
+            it 'can be spliced', -> pojo.array.splice().should.deep.equal array.splice()
+            it 'can be sorted', -> pojo.array.sort().should.deep.equal array.sort()
+
+        it 'instruments objects within it', (done) ->
+
+            array = look_at_that [ key: 'value' ]
+            array[0].on.change -> done()
+            array[0].key = true
+
+        it 'responds to changes in objects within it', (done) ->
+
+            array = look_at_that [ key: 'value' ]
+            array.on.change -> done()
+            array[0].key = true
+
+        it 'responds to changes made with set', (done) ->
+
+            array = [ 1, 2, 3, 4 ]
+
+            observable = look_at_that array
+            observable.on.change -> done()
+            observable.set 0, 0
+
+            array[0] = 0
+            observable.should.deep.equal array
 
     describe 'performance', ->
+
+        @timeout 5000
 
         normal_object = null
         observable_object = null
@@ -268,23 +327,10 @@ describe 'Looking at that POJO', ->
             normal_object = one: 1
             observable_object = look_at_that normal_object
 
-        repeat = (time, func, callback) ->
-
-            count = 0
-            repeats = 5000000
+        repeat = (count, func, callback) ->
             start = Date.now()
-
-            interval = setInterval ->
-                for a in [0...repeats]
-                    func()
-                count += repeats
-            , 0
-
-            setTimeout ->
-                clearInterval interval
-                callback(count/(Date.now() - start))
-            , time
-
+            func() for a in [0...count]
+            return count/(Date.now() - start)
 
         normal_read = -> normal_object.one
         observable_read = -> observable_object.one
@@ -294,42 +340,38 @@ describe 'Looking at that POJO', ->
 
         describe 'with no handlers', ->
 
-            it 'should be comparable for reads', (done) ->
+            it 'should be comparable for reads', ->
 
-                repeat 750, normal_read, (normal_count) ->
-                    repeat 750, observable_read, (observable_count) ->
-                        percentage = observable_count/normal_count * 100
-                        console.log "#{percentage.toFixed(2)}% of normal object's speed"
-                        done()
+                normal_count = repeat 10000000, normal_read
+                observable_count = repeat 10000000, observable_read
+                percentage = observable_count/normal_count * 100
+                console.log "#{percentage.toFixed(2)}% of normal object's speed"
 
-            it 'should be comparable for writes', (done) ->
+            it 'should be comparable for writes', ->
 
-                repeat 750, normal_write, (normal_count) ->
-                    repeat 750, observable_write, (observable_count) ->
-                        percentage = observable_count/normal_count * 100
-                        console.log "#{percentage.toFixed(2)}% of normal object's speed"
-                        done()
+                normal_count = repeat 10000000, normal_write
+                observable_count = repeat 10000000, observable_write
+                percentage = observable_count/normal_count * 100
+                console.log "#{percentage.toFixed(2)}% of normal object's speed"
 
         describe 'with 5 handlers', ->
 
-            it 'should be comparable for reads', (done) ->
+            it 'should be comparable for reads', ->
 
                 for a in [0...5]
                     observable_object.on.change ->
 
-                repeat 750, normal_read, (normal_count) ->
-                    repeat 750, observable_read, (observable_count) ->
-                        percentage = observable_count/normal_count * 100
-                        console.log "#{percentage.toFixed(2)}% of normal object's speed"
-                        done()
+                normal_count = repeat 10000000, normal_read
+                observable_count = repeat 10000000, observable_read
+                percentage = observable_count/normal_count * 100
+                console.log "#{percentage.toFixed(2)}% of normal object's speed"
 
-            it 'should be comparable for writes', (done) ->
+            it 'should be comparable for writes', ->
 
                 for a in [0...5]
                     observable_object.on.change ->
 
-                repeat 750, normal_write, (normal_count) ->
-                    repeat 750, observable_write, (observable_count) ->
-                        percentage = observable_count/normal_count * 100
-                        console.log "#{percentage.toFixed(2)}% of normal object's speed"
-                        done()
+                normal_count = repeat 5000000, normal_write
+                observable_count = repeat 5000000, observable_write
+                percentage = observable_count/normal_count * 100
+                console.log "#{percentage.toFixed(2)}% of normal object's speed"

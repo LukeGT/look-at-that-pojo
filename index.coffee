@@ -1,145 +1,163 @@
 
-remove_from_list = (list, item) ->
-    list.splice list.indexOf(item), 1
-
 watch = (object, parent) ->
 
     unless object instanceof Object
         return object
 
-    if object instanceof Array
-        console.error "WARNING: Arrays not supported"
-        return object
+    common = {
+        parent: parent
+    }
 
-    underlying_data = {}
-    observable = {}
-    object_change_callbacks = []
-    key_change_callbacks = {}
+    return if object.constructor is Object
+        setup_object object, common
 
-    fire_key_change_callbacks = (key, data) ->
+    else if object.constructor is Array
+        setup_array object, common
 
-        for callback in key_change_callbacks[key]
-            callback.call observable, data, observable
+    else
+        object
 
-        return undefined
+setup_common = (object, common) ->
 
-    fire_object_change_callbacks = ->
+    common.object_change_callbacks = []
 
-        for callback in object_change_callbacks
-            callback.call observable, observable
+    ### set(key, value)
+        allows the user to set a property that could not be instrumented otherwise. 
+        e.g. a new object property or an array index
+    ###
+    common.set = (key, value) ->
 
-        return undefined
+        result = common.set.silently key, value
+        common.trigger.change()
 
-    setup = (key) ->
+        return result
 
-        key_change_callbacks[key] ?= []
+    common.set.silently = (key, value) ->
+        common.underlying_data[key] = watch value, common.observable
 
-        return if Object.getOwnPropertyDescriptor observable, key
+    common.on = {}
 
-        Object.defineProperty observable, key, {
+    ### on.change(callback)
+        allows the user to register a callback against changes to the current object
+        Calls 'callback' every time the current object sees a change within it
+        (key, callback) ->
+    ###
+    common.on.change = (callback) ->
+        common.object_change_callbacks.push callback
+        return -> remove_from_list common.object_change_callbacks, callback
 
-            get: -> underlying_data[key]
+    common.trigger = {}
 
+    ### trigger.change()
+        Triggers the callbacks associated with the current object
+    ###
+    common.trigger.change = ->
+
+        for callback in common.object_change_callbacks
+            callback.call common.observable, common.observable
+
+        common.parent?.trigger.change()
+
+setup_object = (object, common) ->
+
+    setup_common object, common
+
+    common.observable = {}
+    common.underlying_data = {}
+    common.key_change_callbacks = {}
+
+    common.setup = (key) ->
+
+        return if common.key_change_callbacks[key]?
+
+        common.key_change_callbacks[key] = []
+
+        Object.defineProperty common.observable, key, {
+
+            get: -> common.underlying_data[key]
             set: (data) ->
-
-                underlying_data[key] = watch data, observable
-
-                fire_key_change_callbacks(key, data)
-                fire_object_change_callbacks()
-                parent?.trigger.change()
+                common.set key, data
 
             enumerable: true
         }
 
     for key, value of object
-        underlying_data[key] = watch value, observable
-        setup key
+        common.set.silently key, value
+        common.setup key
+
+    do (silently = common.set.silently) ->
+
+        common.set = (key, value) ->
+            
+            common.setup key
+            result = common.set.silently key, value
+            common.trigger.change key
+
+            return result
+
+        common.set.silently = silently
     
-    Object.defineProperty observable, 'set', {
+    ### on.change(key, callback)
+        Calls 'callback' every time the key 'key' is changed on the current object
+        If 'key' does not exist within the observable POJO, it is registered
+    ###
+    do (old = common.on.change) -> common.on.change = (key, callback) ->
 
-        ### set(key, value)
-            allows the user to set a property that did not exist in the original POJO
-        ###
-        value: (key, value, silent = false) ->
+        if arguments.length == 1
+            old key
 
-            unless arguments.length >= 2 and arguments.length <= 3
-                throw new Error("set takes 2 or 3 arguments")
+        else
+            common.setup key
+            common.key_change_callbacks[key].push callback
 
-            setup key
+            return -> remove_from_list common.key_change_callbacks[key], callback
 
-            if silent
-                underlying_data[key] = value
-            else
-                observable[key] = value
-    }
+    ### trigger.change(key)
+        Triggers the callbacks associated with the current object's key 'key'
+    ###
+    do (old = common.trigger.change) -> common.trigger.change = (key) ->
 
-    Object.defineProperty observable, 'on', {
+        if arguments.length == 1
 
-        value: {
+            unless common.key_change_callbacks[key]?
+                throw new Error("key '${key}' does not exist")
 
-            ### on.change(...)
-                allows the user to register a callback against changes to the current object
-                (callback) ->
-                    Calls 'callback' every time the current object sees a change within it
-                (key, callback) ->
-                    Calls 'callback' every time the key 'key' is changed on the current object
-                    If 'key' does not exist within the observable POJO, it is registered
-            ###
-            change: ->
+            for callback in common.key_change_callbacks[key]
+                callback.call common.observable, common.underlying_data[key], common.observable
 
-                if arguments.length == 1
+        old()
 
-                    [ callback ] = arguments
+    return instrument_object common
 
-                    object_change_callbacks.push callback
+setup_array = (array, common) ->
 
-                    return -> remove_from_list object_change_callbacks, callback
+    setup_common array, common
 
-                else if arguments.length == 2
+    common.observable = []
 
-                    [ key, callback ] = arguments
+    common.set.silently = (key, value) ->
+        common.observable[key] = watch value, common.observable
 
-                    setup key
-                    key_change_callbacks[key].push callback
+    for value, index in array
+        common.set.silently index, value
 
-                    return -> remove_from_list key_change_callbacks[key], callback
+    for method in [ 'pop', 'push', 'reverse', 'shift', 'unshift', 'splice', 'sort' ]
 
-                else
-                    throw new Error("on.change must take 1 or 2 arguments")
+        Object.defineProperty common.observable, method, value: do (method) -> ->
+            common.trigger.change()
+            Array.prototype[method].apply common.observable, arguments
 
+    return instrument_object common
 
-        }
-    }
+instrument_object = (common) ->
 
-    Object.defineProperty observable, 'trigger', {
+    for method in [ 'set', 'on', 'trigger' ]
+        Object.defineProperty common.observable, method, value: common[method]
 
-        value: {
+    return common.observable
 
-            ### trigger.change(...)
-                ->
-                    Triggers the callbacks associated with the current object
-                (key) ->
-                    Triggers the callbacks associated with the current object's key 'key'
-            ###
-            change: (key) ->
-
-                if arguments.length == 1
-
-                    unless key_change_callbacks[key]?
-                        throw new Error("key '${key}' does not exist")
-
-                    fire_key_change_callbacks(key, underlying_data[key])
-
-                if arguments.length <= 1
-                    fire_object_change_callbacks()
-                    parent?.trigger.change()
-
-                else
-                    throw new Error("trigger.change must take no more than 1 argument")
-        }
-    }
-
-    return observable
+remove_from_list = (list, item) ->
+    list.splice list.indexOf(item), 1
 
 ### watch(object)
     Takes in a POJO and makes it observable
