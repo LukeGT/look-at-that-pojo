@@ -66,13 +66,8 @@ observable = look_at_that({
     object: {
         key: 'value',
     },
-    array: [1, 2, 3],
+    array: [key: 'value', 1, 2, 3],
 })
-
-
-// DOESN'T WORK (but will in the future): Arrays
-observable.array.on.change(function(){ console.log('This wont work') })
-observable.array.push(4)
 
 
 // WORKS: Listening for a property that doesn't exist yet
@@ -118,6 +113,13 @@ observable.exists.on.change(function(){
     console.log("observable.exists is a boolean, and so cannot be" + "instrumented without screwing around with the Object prototype..." +
     "You should use observable.on.change('exists', ...) instead.")
 })
+
+
+// WORKS: Arrays
+observable.array.on.change(function(){ console.log('This totally works') })
+observable.array.push(4) // Works for any destructive array function
+observable.array.set(5, 5) // Works for any index assignments
+observable.array[0].key = true // Nested objects are observable
 
 ```
 
