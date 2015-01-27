@@ -67,6 +67,7 @@ observable = look_at_that({
         key: 'value',
     },
     array: [key: 'value', 1, 2, 3],
+    non_pojo: new String('not a pojo')
 })
 
 
@@ -120,6 +121,11 @@ observable.array.on.change(function(){ console.log('This totally works') })
 observable.array.push(4) // Works for any destructive array function
 observable.array.set(5, 5) // Works for any index assignments
 observable.array[0].key = true // Nested objects are observable
+
+// DOESNT WORK: Things that aren't plain old javascript objects
+// (this is sort of a feature... we could return an instrumented object that looks like your specialised object at face value, but it won't behave the same when you run its methods or look for properties that belong in its prototype)
+observable.non_pojo.on.change(function(){ console.log('I cant get here, "on" is undefined') })
+observable.non_pojo instanceof String // This is true
 
 ```
 

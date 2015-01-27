@@ -1,6 +1,7 @@
 look_at_that = require '../index'
 chai = require 'chai'
 chai.should()
+expect = chai.expect
 
 describe 'Looking at that POJO', ->
 
@@ -315,6 +316,29 @@ describe 'Looking at that POJO', ->
 
             array[0] = 0
             observable.should.deep.equal array
+
+    describe 'Not just plain old javascript objects', ->
+
+        class Test
+
+        observable = look_at_that
+            value: new Test()
+
+        it 'is still of its original type', ->
+            (observable.value instanceof Test).should.be.true
+
+        it 'is not observable', ->
+
+            fired = false
+
+            observable.on.change ->
+                fired = true
+
+            observable.value.property = true
+            fired.should.be.false
+
+        it 'does not have a set method', ->
+            expect(observable.value.set).to.be.undefined
 
     describe 'performance', ->
 
