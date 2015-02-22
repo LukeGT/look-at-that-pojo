@@ -340,6 +340,41 @@ describe 'Looking at that POJO', ->
         it 'does not have a set method', ->
             expect(observable.value.set).to.be.undefined
 
+    describe 'with observables in observables', ->
+
+        other_pojo = null
+
+        beforeEach ->
+
+            other_pojo = look_at_that {
+                other: 'pojo'
+            }
+
+            pojo.one = other_pojo
+
+        it 'should be stored by reference', ->
+
+            pojo.one.should.equal other_pojo
+
+        it 'bubbles internal changes', (done) ->
+
+            pojo.on.change -> done()
+            pojo.one.other = 1
+
+        it 'delivers changes to both objects', ->
+
+            count = 0
+
+            pojo.on.change -> count++
+            other_pojo.on.change -> count++
+
+            pojo.one.other = {
+                some: 'object'
+            }
+
+            count.should.equal 2
+            pojo.one.other.should.equal other_pojo.other
+
     describe 'performance', ->
 
         @timeout 5000

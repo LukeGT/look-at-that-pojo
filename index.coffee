@@ -8,14 +8,18 @@ watch = (object, parent) ->
         parent: parent
     }
 
-    return if object.constructor is Object
-        setup_object object, common
+    if Object.getOwnPropertyDescriptor object, '__observable__'
+        object.set.parent parent
+        return object
+
+    else if object.constructor is Object
+        return setup_object object, common
 
     else if object.constructor is Array
-        setup_array object, common
+        return setup_array object, common
 
     else
-        object
+        return object
 
 setup_common = (object, common) ->
 
@@ -34,6 +38,9 @@ setup_common = (object, common) ->
 
     common.set.silently = (key, value) ->
         common.underlying_data[key] = watch value, common.observable
+
+    common.set.parent = (parent) ->
+        common.parent = parent
 
     common.on = {}
 
@@ -85,7 +92,7 @@ setup_object = (object, common) ->
         common.set.silently key, value
         common.setup key
 
-    do (silently = common.set.silently) ->
+    do (old = common.set) ->
 
         common.set = (key, value) ->
             
@@ -95,7 +102,8 @@ setup_object = (object, common) ->
 
             return result
 
-        common.set.silently = silently
+        for key, value of old
+            common.set[key] = value
     
     ### on.change(key, callback)
         Calls 'callback' every time the key 'key' is changed on the current object
@@ -153,6 +161,9 @@ instrument_object = (common) ->
 
     for method in [ 'set', 'on', 'trigger' ]
         Object.defineProperty common.observable, method, value: common[method]
+
+    # Mark this object as observable
+    Object.defineProperty common.observable, '__observable__', value: undefined
 
     return common.observable
 
