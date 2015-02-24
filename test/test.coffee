@@ -1,5 +1,6 @@
 look_at_that = require '../index'
 chai = require 'chai'
+benchmark = require 'benchmark'
 chai.should()
 expect = chai.expect
 
@@ -377,8 +378,6 @@ describe 'Looking at that POJO', ->
 
     describe 'performance', ->
 
-        @timeout 5000
-
         normal_object = null
         observable_object = null
 
@@ -386,51 +385,51 @@ describe 'Looking at that POJO', ->
             normal_object = one: 1
             observable_object = look_at_that normal_object
 
-        repeat = (count, func, callback) ->
-            start = Date.now()
-            func() for a in [0...count]
-            return count/(Date.now() - start)
-
         normal_read = -> normal_object.one
         observable_read = -> observable_object.one
 
         normal_write = -> normal_object.one = 1
         observable_write = -> observable_object.one = 1
 
+        do_test = (normal_test, observable_test, done) ->
+
+           (new benchmark.Suite)
+            .add 'normal', normal_test
+            .add 'observable', observable_test
+            .on 'cycle', (event) -> console.log String event.target
+            .on 'complete', ->
+                [ normal, observable ] = @pluck 'hz'
+                percentage = observable/normal * 100
+                console.log "#{percentage.toFixed(2)}% of normal object's speed"
+                done()
+            .run async: true
+
         describe 'with no handlers', ->
 
-            it 'should be comparable for reads', ->
+            it 'should be comparable for reads', (done) ->
+                @timeout 30000
+                do_test normal_read, observable_read, done
 
-                normal_count = repeat 10000000, normal_read
-                observable_count = repeat 10000000, observable_read
-                percentage = observable_count/normal_count * 100
-                console.log "#{percentage.toFixed(2)}% of normal object's speed"
-
-            it 'should be comparable for writes', ->
-
-                normal_count = repeat 10000000, normal_write
-                observable_count = repeat 10000000, observable_write
-                percentage = observable_count/normal_count * 100
-                console.log "#{percentage.toFixed(2)}% of normal object's speed"
+            it 'should be comparable for writes', (done) ->
+                @timeout 30000
+                do_test normal_write, observable_write, done
 
         describe 'with 5 handlers', ->
 
-            it 'should be comparable for reads', ->
+            it 'should be comparable for reads', (done) ->
+
+                @timeout 30000
 
                 for a in [0...5]
                     observable_object.on.change ->
 
-                normal_count = repeat 10000000, normal_read
-                observable_count = repeat 10000000, observable_read
-                percentage = observable_count/normal_count * 100
-                console.log "#{percentage.toFixed(2)}% of normal object's speed"
+                do_test normal_read, observable_read, done
 
-            it 'should be comparable for writes', ->
+            it 'should be comparable for writes', (done) ->
+
+                @timeout 30000
 
                 for a in [0...5]
                     observable_object.on.change ->
 
-                normal_count = repeat 5000000, normal_write
-                observable_count = repeat 5000000, observable_write
-                percentage = observable_count/normal_count * 100
-                console.log "#{percentage.toFixed(2)}% of normal object's speed"
+                do_test normal_write, observable_write, done
