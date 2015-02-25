@@ -39,6 +39,18 @@ setup_common = (object, common) ->
     common.set.silently = (key, value) ->
         common.underlying_data[key] = watch value, common.observable
 
+    common.set.deeply = (deep_object) ->
+
+        for key, value of deep_object
+
+            if value instanceof Object and common.underlying_data[key]?
+                common.underlying_data[key].set.deeply value
+
+            else
+                common.set key, value
+
+        return common.observable
+
     common.set.parent = (parent) ->
         common.parent = parent
 
@@ -82,8 +94,7 @@ setup_object = (object, common) ->
         Object.defineProperty common.observable, key, {
 
             get: -> common.underlying_data[key]
-            set: (data) ->
-                common.set key, data
+            set: (data) -> common.set key, data
 
             enumerable: true
         }

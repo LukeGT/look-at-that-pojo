@@ -109,9 +109,30 @@ observable.exists.new.on.change(function() {
 observable.exists.new = 'woo!'
 
 
+// DOESN'T WORK: Listening to a deep property, and then setting the parent object to a new object
+observable.object.on.change(function() {
+    console.log('This wont fire because the instrumented object is about to get blown away')
+})
+observable.object = {
+    key: 'new value'
+}
+
+
+// WORKS: Listening to a deep property, then setting the parent object deeply, retaining all instrumentation and firing all relevant events
+
+
+observable.object.on.change(function() {
+    console.log('I will fire!')
+})
+observable.object.set.deeply({
+    key: 'new value'
+})
+
+
 // DOESN'T WORK: Trying to listen for changes on things that aren't technically Objects
 observable.exists.on.change(function(){
-    console.log("observable.exists is a boolean, and so cannot be" + "instrumented without screwing around with the Object prototype..." +
+    console.log("observable.exists is a boolean, and so cannot be" +
+    "instrumented without screwing around with the Object prototype..." +
     "You should use observable.on.change('exists', ...) instead.")
 })
 

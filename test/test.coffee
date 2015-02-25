@@ -1,6 +1,5 @@
 look_at_that = require '../index'
 chai = require 'chai'
-benchmark = require 'benchmark'
 chai.should()
 expect = chai.expect
 
@@ -376,60 +375,38 @@ describe 'Looking at that POJO', ->
             count.should.equal 2
             pojo.one.other.should.equal other_pojo.other
 
-    describe 'performance', ->
+    describe 'with deep objects', ->
 
-        normal_object = null
-        observable_object = null
+        it 'should allow me to deep set an object and see nested change events', (done) ->
 
-        beforeEach ->
-            normal_object = one: 1
-            observable_object = look_at_that normal_object
+            pojo.three.six.on.change 'seven', -> done()
 
-        normal_read = -> normal_object.one
-        observable_read = -> observable_object.one
+            pojo.set.deeply {
+                three:
+                    six:
+                        seven: 'seven'
+            }
 
-        normal_write = -> normal_object.one = 1
-        observable_write = -> observable_object.one = 1
+        it 'should not trigger a change when a non-Object is passed in', ->
 
-        do_test = (normal_test, observable_test, done) ->
+            pojo.three.on.change -> throw new Error 'deep change triggered mistakenly'
+            pojo.three.set.deeply 3
 
-           (new benchmark.Suite)
-            .add 'normal', normal_test
-            .add 'observable', observable_test
-            .on 'cycle', (event) -> console.log String event.target
-            .on 'complete', ->
-                [ normal, observable ] = @pluck 'hz'
-                percentage = observable/normal * 100
-                console.log "#{percentage.toFixed(2)}% of normal object's speed"
-                done()
-            .run async: true
+        it 'should instrument new properties of an object', (done) ->
 
-        describe 'with no handlers', ->
+            pojo.set.deeply {
+                new_property: 5
+            }
 
-            it 'should be comparable for reads', (done) ->
-                @timeout 30000
-                do_test normal_read, observable_read, done
+            pojo.on.change -> done()
+            pojo.new_property = 10
 
-            it 'should be comparable for writes', (done) ->
-                @timeout 30000
-                do_test normal_write, observable_write, done
+        it 'should instrument new properties of an object even if they are deep themselves', (done) ->
 
-        describe 'with 5 handlers', ->
+            pojo.set.deeply {
+                new_property:
+                    key: 'value'
+            }
 
-            it 'should be comparable for reads', (done) ->
-
-                @timeout 30000
-
-                for a in [0...5]
-                    observable_object.on.change ->
-
-                do_test normal_read, observable_read, done
-
-            it 'should be comparable for writes', (done) ->
-
-                @timeout 30000
-
-                for a in [0...5]
-                    observable_object.on.change ->
-
-                do_test normal_write, observable_write, done
+            pojo.new_property.on.change -> done()
+            pojo.new_property.key = 'something else'
