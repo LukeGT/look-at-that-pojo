@@ -23,7 +23,10 @@ watch = (object, parent) ->
 
 setup_common = (object, common) ->
 
-    common.object_change_callbacks = []
+    common.observable = null
+    common.callbacks = {}
+    common.callbacks.object_change = []
+    common.timeouts = {}
 
     ### set(key, value)
         allows the user to set a property that could not be instrumented otherwise. 
@@ -37,14 +40,14 @@ setup_common = (object, common) ->
         return result
 
     common.set.silently = (key, value) ->
-        common.underlying_data[key] = watch value, common.observable
+        common.observable[key] = watch value, common.observable
 
     common.set.deeply = (deep_object) ->
 
         for key, value of deep_object
 
-            if value instanceof Object and common.underlying_data[key]?
-                common.underlying_data[key].set.deeply value
+            if value instanceof Object and common.observable[key]?
+                common.observable[key].set.deeply value
 
             else
                 common.set key, value
@@ -62,8 +65,19 @@ setup_common = (object, common) ->
         (key, callback) ->
     ###
     common.on.change = (callback) ->
-        common.object_change_callbacks.push callback
-        return -> remove_from_list common.object_change_callbacks, callback
+        common.callbacks.object_change.push callback
+        return -> remove_from_list common.callbacks.object_change, callback
+
+    common.run_callbacks = (callbacks, timeouts, name, args) ->
+
+        if callbacks[name].length
+
+            timeouts[name] ?= setTimeout ->
+
+                for callback in callbacks[name]
+                    callback.apply common.observable, args
+
+                delete timeouts[name]
 
     common.trigger = {}
 
@@ -71,10 +85,7 @@ setup_common = (object, common) ->
         Triggers the callbacks associated with the current object
     ###
     common.trigger.change = ->
-
-        for callback in common.object_change_callbacks
-            callback.call common.observable, common.observable
-
+        common.run_callbacks common.callbacks, common.timeouts, 'object_change', [ common.observable ]
         common.parent?.trigger.change()
 
 setup_object = (object, common) ->
@@ -83,13 +94,14 @@ setup_object = (object, common) ->
 
     common.observable = {}
     common.underlying_data = {}
-    common.key_change_callbacks = {}
+    common.callbacks.key_change = {}
+    common.timeouts.key_change = {}
 
     common.setup = (key) ->
 
-        return if common.key_change_callbacks[key]?
+        return if common.callbacks.key_change[key]?
 
-        common.key_change_callbacks[key] = []
+        common.callbacks.key_change[key] = []
 
         Object.defineProperty common.observable, key, {
 
@@ -98,10 +110,6 @@ setup_object = (object, common) ->
 
             enumerable: true
         }
-
-    for key, value of object
-        common.set.silently key, value
-        common.setup key
 
     do (old = common.set) ->
 
@@ -116,6 +124,9 @@ setup_object = (object, common) ->
         for key, value of old
             common.set[key] = value
     
+    common.set.silently = (key, value) ->
+        common.underlying_data[key] = watch value, common.observable
+
     ### on.change(key, callback)
         Calls 'callback' every time the key 'key' is changed on the current object
         If 'key' does not exist within the observable POJO, it is registered
@@ -127,9 +138,9 @@ setup_object = (object, common) ->
 
         else
             common.setup key
-            common.key_change_callbacks[key].push callback
+            common.callbacks.key_change[key].push callback
 
-            return -> remove_from_list common.key_change_callbacks[key], callback
+            return -> remove_from_list common.callbacks.key_change[key], callback
 
     ### trigger.change(key)
         Triggers the callbacks associated with the current object's key 'key'
@@ -138,13 +149,21 @@ setup_object = (object, common) ->
 
         if arguments.length == 1
 
-            unless common.key_change_callbacks[key]?
+            unless common.callbacks.key_change[key]?
                 throw new Error("key '${key}' does not exist")
 
-            for callback in common.key_change_callbacks[key]
-                callback.call common.observable, common.underlying_data[key], common.observable
+            common.run_callbacks(
+                common.callbacks.key_change,
+                common.timeouts.key_change,
+                key,
+                [ common.underlying_data[key], common.observable ]
+            )
 
         old()
+
+    for key, value of object
+        common.set.silently key, value
+        common.setup key
 
     return instrument_object common
 
@@ -153,9 +172,6 @@ setup_array = (array, common) ->
     setup_common array, common
 
     common.observable = []
-
-    common.set.silently = (key, value) ->
-        common.observable[key] = watch value, common.observable
 
     for value, index in array
         common.set.silently index, value

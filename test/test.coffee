@@ -31,6 +31,20 @@ describe 'Looking at that POJO', ->
 
     describe 'listening to object change events', ->
 
+        it 'should not fire more than once per tick', (done) ->
+
+            count = 0
+
+            pojo.on.change -> count++
+
+            pojo.one = 'one'
+            pojo.two = 'two'
+            pojo.three = 'three'
+
+            setTimeout ->
+                count.should.equal 1
+                done()
+
         describe 'at the root object', ->
 
             it 'should have itself as the first parameter', (done) ->
@@ -155,7 +169,7 @@ describe 'Looking at that POJO', ->
             delete_me()
             pojo.one = 'one'
 
-        it 'should still trigger other events attached to the same change', ->
+        it 'should still trigger other events attached to the same change', (done) ->
 
             count = 0
 
@@ -167,7 +181,9 @@ describe 'Looking at that POJO', ->
 
             pojo.one = 'one'
 
-            count.should.equal 2
+            setTimeout ->
+                count.should.equal 2
+                done()
 
     describe 'removing a key change event', ->
 
@@ -179,7 +195,7 @@ describe 'Looking at that POJO', ->
             delete_me()
             pojo.one = 'one'
 
-        it 'should still trigger other events attached to the same change', ->
+        it 'should still trigger other events attached to the same change', (done) ->
 
             count = 0
 
@@ -191,7 +207,9 @@ describe 'Looking at that POJO', ->
 
             pojo.one = 'one'
 
-            count.should.equal 2
+            setTimeout ->
+                count.should.equal 2
+                done()
 
     describe 'listening to a key before it exists', ->
 
@@ -214,11 +232,10 @@ describe 'Looking at that POJO', ->
 
     describe 'assigning an object over an object', ->
 
-        it 'should result in an observable object', ->
+        it 'should result in an observable object', (done) ->
 
-            root_count = 0
-
-            pojo.on.change -> root_count++
+            count = 0
+            pojo.on.change -> count++
 
             pojo.three = {
                 eight: 8
@@ -228,9 +245,12 @@ describe 'Looking at that POJO', ->
                     twelve: 12
             }
 
-            pojo.three.eight = 'eight'
+            setTimeout ->
+                pojo.three.eight = 'eight'
 
-            root_count.should.equal 2
+                setTimeout ->
+                    count.should.equal 2
+                    done()
 
         it 'should allow nested objects to have event handlers', (done) ->
 
@@ -283,8 +303,11 @@ describe 'Looking at that POJO', ->
                 pojo = look_at_that array: array
                 pojo.array.on.change -> changed = true
 
-            afterEach ->
-                changed.should.be.true
+            afterEach (done) ->
+
+                setTimeout ->
+                    changed.should.be.true
+                    done()
 
             it 'can be popped', -> pojo.array.pop().should.equal array.pop()
             it 'can be pushed', -> pojo.array.push().should.equal array.push()
@@ -361,7 +384,7 @@ describe 'Looking at that POJO', ->
             pojo.on.change -> done()
             pojo.one.other = 1
 
-        it 'delivers changes to both objects', ->
+        it 'delivers changes to both objects', (done) ->
 
             count = 0
 
@@ -372,8 +395,10 @@ describe 'Looking at that POJO', ->
                 some: 'object'
             }
 
-            count.should.equal 2
-            pojo.one.other.should.equal other_pojo.other
+            setTimeout ->
+                count.should.equal 2
+                pojo.one.other.should.equal other_pojo.other
+                done()
 
     describe 'with deep objects', ->
 
