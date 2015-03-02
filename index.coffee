@@ -1,11 +1,12 @@
 
-watch = (object, parent) ->
+watch = (object, parent, config) ->
 
     unless object instanceof Object
         return object
 
     common = {
         parent: parent
+        config: config
     }
 
     if Object.getOwnPropertyDescriptor object, '__observable__'
@@ -40,7 +41,7 @@ setup_common = (object, common) ->
         return result
 
     common.set.silently = (key, value) ->
-        common.observable[key] = watch value, common.observable
+        common.observable[key] = watch value, common.observable, common.config
 
     common.set.deeply = (deep_object) ->
 
@@ -125,7 +126,7 @@ setup_object = (object, common) ->
             common.set[key] = value
     
     common.set.silently = (key, value) ->
-        common.underlying_data[key] = watch value, common.observable
+        common.underlying_data[key] = watch value, common.observable, common.config
 
     ### on.change(key, callback)
         Calls 'callback' every time the key 'key' is changed on the current object
@@ -189,6 +190,9 @@ instrument_object = (common) ->
     for method in [ 'set', 'on', 'trigger' ]
         Object.defineProperty common.observable, method, value: common[method]
 
+    if common.config.debug
+        Object.defineProperty common.observable, 'common', value: common
+
     # Mark this object as observable
     Object.defineProperty common.observable, '__observable__', value: undefined
 
@@ -197,7 +201,20 @@ instrument_object = (common) ->
 remove_from_list = (list, item) ->
     list.splice list.indexOf(item), 1
 
+configure = (default_config) ->
+
+    look_at_that = (pojo) -> watch pojo, undefined, default_config
+
+    look_at_that.configure = (config) ->
+
+        for key, value of default_config
+            config[key] ?= value
+
+        return configure config
+
+    return look_at_that
+
 ### watch(object)
     Takes in a POJO and makes it observable
 ###
-module.exports = (pojo) -> watch pojo
+module.exports = configure {}

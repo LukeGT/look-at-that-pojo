@@ -159,6 +159,33 @@ describe 'Looking at that POJO', ->
 
             pojo.one = 'one'
 
+    describe 'configuring the library', ->
+
+        new_look = null
+
+        beforeEach ->
+            new_look = look_at_that.configure
+                debug: true
+                random: 123
+
+        it 'supports a debug option', ->
+            new_look({}).common.config.debug.should.be.true
+
+        it 'should not affect the original function', ->
+            expect(look_at_that({}).common).not.to.exist
+
+        it 'should inherit configurations correctly', ->
+            pojo = new_look one: two: 'three'
+            pojo.one.common.config.debug.should.be.true
+
+        it 'should allow descendant configurations', ->
+
+            newer_look = new_look.configure random: 'abc'
+
+            pojo = newer_look {}
+            pojo.common.config.debug.should.be.true
+            pojo.common.config.random.should.equal 'abc'
+
     describe 'removing an object change event', ->
 
         it 'should not trigger', ->
