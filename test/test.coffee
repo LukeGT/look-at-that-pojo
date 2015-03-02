@@ -188,13 +188,14 @@ describe 'Looking at that POJO', ->
 
     describe 'removing an object change event', ->
 
-        it 'should not trigger', ->
+        it 'should not trigger', (done) ->
 
             delete_me = pojo.on.change ->
                 throw new Error("I should not have run")
 
             delete_me()
             pojo.one = 'one'
+            setTimeout -> done()
 
         it 'should still trigger other events attached to the same change', (done) ->
 
@@ -214,13 +215,14 @@ describe 'Looking at that POJO', ->
 
     describe 'removing a key change event', ->
 
-        it 'should not trigger', ->
+        it 'should not trigger', (done) ->
 
             delete_me = pojo.on.change 'one', ->
                 throw new Error("I should not have run")
 
             delete_me()
             pojo.one = 'one'
+            setTimeout -> done()
 
         it 'should still trigger other events attached to the same change', (done) ->
 
@@ -307,15 +309,17 @@ describe 'Looking at that POJO', ->
 
     describe 'setting a value silently', ->
 
-        it 'should not trigger an object change', ->
+        it 'should not trigger an object change', (done) ->
 
             pojo.on.change -> throw new Error('This should not have run')
             pojo.set.silently 'one', 'one'
+            setTimeout -> done()
 
-        it 'should not trigger a key change', ->
+        it 'should not trigger a key change', (done) ->
 
             pojo.on.change 'one', -> throw new Error('This should not have run')
             pojo.set.silently 'one', 'one'
+            setTimeout -> done()
 
     describe 'Arrays', ->
 
@@ -439,10 +443,11 @@ describe 'Looking at that POJO', ->
                         seven: 'seven'
             }
 
-        it 'should not trigger a change when a non-Object is passed in', ->
+        it 'should not trigger a change when a non-Object is passed in', (done) ->
 
             pojo.three.on.change -> throw new Error 'deep change triggered mistakenly'
             pojo.three.set.deeply 3
+            setTimeout -> done()
 
         it 'should instrument new properties of an object', (done) ->
 
