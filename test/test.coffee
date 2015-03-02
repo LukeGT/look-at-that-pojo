@@ -374,25 +374,50 @@ describe 'Looking at that POJO', ->
     describe 'Not just plain old javascript objects', ->
 
         class Test
+            constructor: ->
+                @property = 1
+            make_change: (val) ->
+                @property = val
 
-        observable = look_at_that
-            value: new Test()
+        observable = null
 
-        it 'is still of its original type', ->
-            (observable.value instanceof Test).should.be.true
+        describe 'by default', ->
 
-        it 'is not observable', ->
+            beforeEach ->
+                observable = look_at_that nonpojo: new Test()
 
-            fired = false
+            it 'is still of its original type', ->
+                (observable.nonpojo instanceof Test).should.be.true
 
-            observable.on.change ->
-                fired = true
+            it 'is not observable', (done) ->
+                timeout = null
+                observable.on.change ->
+                    done 'big fat error'
+                    clearTimeout timeout
+                observable.nonpojo.property = true
+                timeout = setTimeout -> done()
 
-            observable.value.property = true
-            fired.should.be.false
+            it 'does not have a set method', ->
+                expect(observable.nonpojo.set).to.be.undefined
 
-        it 'does not have a set method', ->
-            expect(observable.value.set).to.be.undefined
+        describe 'allowing non-pojos', ->
+
+            beforeEach ->
+                new_look = look_at_that.configure nonpojo: true
+                observable = new_look
+                    nonpojo: new Test()
+
+            it 'is still of its original type', ->
+                (observable.nonpojo instanceof Test).should.be.true
+
+            it 'is observable', (done) ->
+                observable.on.change -> done()
+                observable.nonpojo.property = true
+
+            it 'behaves as it should', (done) ->
+                observable.nonpojo.on.change 'property', -> done()
+                observable.nonpojo.make_change 5
+                observable.nonpojo.property.should.equal 5
 
     describe 'with observables in observables', ->
 
@@ -400,10 +425,7 @@ describe 'Looking at that POJO', ->
 
         beforeEach ->
 
-            other_pojo = look_at_that {
-                other: 'pojo'
-            }
-
+            other_pojo = look_at_that other: 'pojo'
             pojo.one = other_pojo
 
         it 'should be stored by reference', ->

@@ -13,11 +13,11 @@ watch = (object, parent, config) ->
         object.set.parent parent
         return object
 
-    else if object.constructor is Object
-        return setup_object object, common
-
     else if object.constructor is Array
         return setup_array object, common
+
+    else if object.constructor is Object or (common.config.nonpojo and object instanceof Object)
+        return setup_object object, common
 
     else
         return object
@@ -93,7 +93,19 @@ setup_object = (object, common) ->
 
     setup_common object, common
 
-    common.observable = {}
+    if common.config.nonpojo
+
+        if typeof object is 'object'
+            constructor = ->
+            constructor.prototype = object.constructor.prototype
+            common.observable = new constructor
+
+        else if typeof object is 'function'
+            common.observable = -> object.apply this, arguments
+
+    else
+        common.observable = {}
+
     common.underlying_data = {}
     common.callbacks.key_change = {}
     common.timeouts.key_change = {}
